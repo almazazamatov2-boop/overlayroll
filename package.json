@@ -1,0 +1,16 @@
+{
+  "name": "twitch-fate-overlay",
+  "version": "2.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.11.3",
+    "ws": "^8.18.0"
+  }
+}
