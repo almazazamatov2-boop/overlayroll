@@ -618,7 +618,7 @@ function renderOverlay(streamer) {
     sIn=document.getElementById("sIn"),sRoll=document.getElementById("sRoll"),
     sWin=document.getElementById("sWin"),sLose=document.getElementById("sLose"),sOut=document.getElementById("sOut");
 
-  const T_IN=650,T_STAND=3000,T_ROLL=3500,T_AFTER_RESULT=5500,T_OUT=650;
+  const T_IN=650,T_STAND=3000,T_ROLL=3000,T_AFTER_RESULT=1000,T_OUT=650;
   let busy=false; const queue=[];
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
