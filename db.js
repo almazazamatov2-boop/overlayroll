@@ -27,8 +27,44 @@ export async function initDB() {
       created_at    TIMESTAMP DEFAULT NOW()
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS whitelist (
+      twitch_login TEXT PRIMARY KEY,
+      note         TEXT DEFAULT '',
+      added_at     TIMESTAMP DEFAULT NOW()
+    )
+  `);
   console.log('✅ DB ready');
 }
+
+// ─── Whitelist ────────────────────────────────────────────────────────────────
+
+export async function isWhitelisted(twitchLogin) {
+  const r = await pool.query(
+    'SELECT 1 FROM whitelist WHERE LOWER(twitch_login) = LOWER($1)',
+    [twitchLogin]
+  );
+  return r.rowCount > 0;
+}
+
+export async function getWhitelist() {
+  const r = await pool.query('SELECT * FROM whitelist ORDER BY added_at DESC');
+  return r.rows;
+}
+
+export async function addToWhitelist(twitchLogin, note = '') {
+  await pool.query(`
+    INSERT INTO whitelist (twitch_login, note)
+    VALUES (LOWER($1), $2)
+    ON CONFLICT (twitch_login) DO UPDATE SET note = EXCLUDED.note
+  `, [twitchLogin, note]);
+}
+
+export async function removeFromWhitelist(twitchLogin) {
+  await pool.query('DELETE FROM whitelist WHERE LOWER(twitch_login) = LOWER($1)', [twitchLogin]);
+}
+
+// ─── Streamers ────────────────────────────────────────────────────────────────
 
 export async function getStreamer(id) {
   const r = await pool.query('SELECT * FROM streamers WHERE id = $1', [id]);
