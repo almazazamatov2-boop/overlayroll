@@ -456,7 +456,7 @@ function renderDashboard(streamer, saved) {
 
   <div class="card">
     <h2>📺 OBS Browser Source</h2>
-    <p style="color:#adadb8;font-size:13px;margin:0 0 8px">Добавь этот URL как Browser Source (размер: 1600×250, прозрачный фон):</p>
+    <p style="color:#adadb8;font-size:13px;margin:0 0 8px">Добавь этот URL как Browser Source (размер: 1600×250):</p>
     <div class="url-box">${overlayUrl}</div>
     <div class="flex">
       <button onclick="copyUrl('${overlayUrl}')" class="btn-sm btn">📋 Скопировать</button>
