@@ -398,8 +398,8 @@ h2{color:#9146ff;margin:0 0 20px}input{width:100%;padding:10px 14px;background:#
 button{margin-top:14px;width:100%;padding:12px;background:#9146ff;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer}</style></head>
 <body><div class="card">
   <h2>🔐 Admin</h2>
-  <form onsubmit="event.preventDefault();location.href='/admin?secret='+document.getElementById('s').value">
-    <input id="s" type="password" placeholder="Пароль администратора" autofocus>
+  <form method="GET" action="/admin">
+    <input name="secret" type="password" placeholder="Пароль администратора" autofocus>
     <button type="submit">Войти</button>
   </form>
 </div></body></html>`);
