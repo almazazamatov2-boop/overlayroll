@@ -239,7 +239,6 @@ app.get('/', (req, res) => {
 <body><div class="card">
   <div class="dice">🎲</div>
   <h1>Fate Overlay</h1>
-  <p>Оверлей для Twitch-стримеров. Каждый получает свой уникальный URL, настройки и ассеты.</p>
   <a href="/auth" class="btn">Войти через Twitch</a>
 </div></body></html>`);
 });
