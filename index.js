@@ -294,7 +294,7 @@ h1{color:#ff4d4d;margin:0 0 12px}p{color:#adadb8;line-height:1.6}
 <body><div class='card'>
   <div style='font-size:3em'>🚫</div>
   <h1>Доступ закрыт</h1>
-  <p>Ник <b>\${user.login}</b> не в списке разрешённых пользователей.<br><br>Свяжись с администратором для получения доступа.</p>
+  <p>Свяжитесь со мной @paracetomolhaze для получения доступа.</p>
   <a href='/' class='btn'>← Назад</a>
 </div></body></html>`);
     }
@@ -740,7 +740,7 @@ function renderOverlay(streamer) {
     sIn=document.getElementById("sIn"),sRoll=document.getElementById("sRoll"),
     sWin=document.getElementById("sWin"),sLose=document.getElementById("sLose"),sOut=document.getElementById("sOut");
 
-  const T_IN=650,T_STAND=3000,T_ROLL=3000,T_AFTER_RESULT=1000,T_OUT=650;
+  const T_IN=650,T_STAND=1000,T_ROLL=3000,T_AFTER_RESULT=1000,T_OUT=650;
   let busy=false; const queue=[];
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
