@@ -8,7 +8,8 @@ import { WebSocketServer } from 'ws';
 import multer from 'multer';
 import {
   pool, initDB, getStreamer, getStreamerByTwitchId,
-  getAllStreamersWithTokens, upsertStreamer, updateTokens, updateSettings
+  getAllStreamersWithTokens, upsertStreamer, updateTokens, updateSettings,
+  isWhitelisted, getWhitelist, addToWhitelist, removeFromWhitelist
 } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -17,6 +18,8 @@ const APP_PORT  = Number(process.env.APP_PORT || 3000);
 const CLIENT_ID     = process.env.TWITCH_CLIENT_ID;
 const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
 const BASE_URL  = (process.env.BASE_URL || `http://localhost:${APP_PORT}`).replace(/\/$/, '');
+
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'changeme';
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
   console.error('❌ TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET not set in .env');
@@ -279,6 +282,23 @@ app.get('/callback', async (req, res) => {
     });
     const user = userData.data[0];
 
+    // ── Whitelist check ──
+    const allowed = await isWhitelisted(user.login);
+    if (!allowed) {
+      return res.type('html').send(`<!DOCTYPE html>
+<html lang='ru'><head><meta charset='utf-8'><title>Доступ закрыт</title>
+<style>body{font-family:Inter,sans-serif;background:#0e0e10;color:#efeff1;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.card{background:#18181b;border-radius:16px;padding:40px;max-width:440px;text-align:center}
+h1{color:#ff4d4d;margin:0 0 12px}p{color:#adadb8;line-height:1.6}
+.btn{display:inline-block;margin-top:20px;padding:12px 24px;background:#3a3a3d;color:#efeff1;text-decoration:none;border-radius:8px;font-weight:700}</style></head>
+<body><div class='card'>
+  <div style='font-size:3em'>🚫</div>
+  <h1>Доступ закрыт</h1>
+  <p>Ник <b>\${user.login}</b> не в списке разрешённых пользователей.<br><br>Свяжись с администратором для получения доступа.</p>
+  <a href='/' class='btn'>← Назад</a>
+</div></body></html>`);
+    }
+
     const existing   = await getStreamerByTwitchId(user.id);
     const streamerId = existing?.id || tempId;
 
@@ -362,6 +382,108 @@ app.get('/test/:streamerId', async (req, res) => {
   });
 
   res.send(`Sent: pick=${pick} rolled=${rolled} => ${result}`);
+});
+
+
+// ─── Admin panel ──────────────────────────────────────────────────────────────
+
+function adminAuth(req, res, next) {
+  const secret = req.query.secret || req.headers['x-admin-secret'] || '';
+  if (secret !== ADMIN_SECRET) {
+    return res.status(401).type('html').send(`<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><title>Admin</title>
+<style>body{font-family:Inter,sans-serif;background:#0e0e10;color:#efeff1;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.card{background:#18181b;border-radius:16px;padding:36px;max-width:380px;width:100%;text-align:center}
+h2{color:#9146ff;margin:0 0 20px}input{width:100%;padding:10px 14px;background:#0e0e10;border:1px solid #3a3a3d;color:#efeff1;border-radius:8px;font-size:15px;box-sizing:border-box}
+button{margin-top:14px;width:100%;padding:12px;background:#9146ff;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer}</style></head>
+<body><div class="card">
+  <h2>🔐 Admin</h2>
+  <form onsubmit="event.preventDefault();location.href='/admin?secret='+document.getElementById('s').value">
+    <input id="s" type="password" placeholder="Пароль администратора" autofocus>
+    <button type="submit">Войти</button>
+  </form>
+</div></body></html>`);
+  }
+  req.adminSecret = secret;
+  next();
+}
+
+app.get('/admin', adminAuth, async (req, res) => {
+  const list = await getWhitelist();
+  const secret = req.adminSecret;
+
+  const rows = list.map(w => `
+    <tr>
+      <td style="padding:10px 14px;font-weight:600">${w.twitch_login}</td>
+      <td style="padding:10px 14px;color:#adadb8">${w.note || '—'}</td>
+      <td style="padding:10px 14px;color:#adadb8;font-size:12px">${new Date(w.added_at).toLocaleDateString('ru')}</td>
+      <td style="padding:10px 14px">
+        <form method="POST" action="/admin/remove?secret=${secret}" style="margin:0">
+          <input type="hidden" name="login" value="${w.twitch_login}">
+          <button type="submit" style="background:rgba(255,77,77,.15);color:#ff4d4d;border:1px solid rgba(255,77,77,.3);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700">Удалить</button>
+        </form>
+      </td>
+    </tr>`).join('');
+
+  res.type('html').send(`<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — Fate Overlay</title>
+<style>
+  *{box-sizing:border-box} body{font-family:Inter,sans-serif;background:#0e0e10;color:#efeff1;margin:0;padding:20px}
+  .page{max-width:700px;margin:0 auto}
+  h1{color:#9146ff;margin:0 0 24px;font-size:1.6em}
+  .card{background:#18181b;border-radius:14px;padding:24px;margin-bottom:20px}
+  h2{margin:0 0 16px;color:#bf94ff;text-transform:uppercase;letter-spacing:.05em;font-size:13px}
+  input[type=text]{background:#0e0e10;border:1px solid #3a3a3d;color:#efeff1;padding:9px 12px;border-radius:8px;font-size:14px}
+  .btn{background:#9146ff;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;transition:background .2s}
+  .btn:hover{background:#a970ff}
+  table{width:100%;border-collapse:collapse}
+  tr{border-bottom:1px solid #1f1f23} tr:last-child{border:none}
+  tr:hover{background:rgba(255,255,255,.02)}
+  .empty{color:#adadb8;text-align:center;padding:20px;font-size:14px}
+  .flex{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  label span{display:block;font-size:12px;color:#adadb8;margin-bottom:4px;font-weight:600}
+  .count{background:#9146ff;color:#fff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;margin-left:8px}
+</style></head>
+<body><div class="page">
+  <h1>🎲 Fate Overlay <span style="color:#adadb8;font-size:.5em;font-weight:400">Admin</span></h1>
+
+  <div class="card">
+    <h2>Добавить стримера</h2>
+    <form method="POST" action="/admin/add?secret=${secret}">
+      <div class="flex">
+        <label><span>Twitch ник (точно как на канале)</span>
+          <input type="text" name="login" placeholder="ник стримера" required style="width:220px">
+        </label>
+        <label><span>Заметка (опционально)</span>
+          <input type="text" name="note" placeholder="оплатил до 01.06" style="width:200px">
+        </label>
+        <button type="submit" class="btn">+ Добавить</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Разрешённые стримеры <span class="count">${list.length}</span></h2>
+    ${list.length === 0
+      ? '<div class="empty">Список пуст — никто не может войти</div>'
+      : `<table>${rows}</table>`
+    }
+  </div>
+
+</div></body></html>`);
+});
+
+app.post('/admin/add', adminAuth, express.urlencoded({ extended: true }), async (req, res) => {
+  const { login, note } = req.body;
+  if (login?.trim()) await addToWhitelist(login.trim(), note?.trim() || '');
+  res.redirect(`/admin?secret=${req.adminSecret}`);
+});
+
+app.post('/admin/remove', adminAuth, express.urlencoded({ extended: true }), async (req, res) => {
+  const { login } = req.body;
+  if (login) await removeFromWhitelist(login);
+  res.redirect(`/admin?secret=${req.adminSecret}`);
 });
 
 // ─── HTTP server + WS upgrade ─────────────────────────────────────────────────
@@ -618,7 +740,7 @@ function renderOverlay(streamer) {
     sIn=document.getElementById("sIn"),sRoll=document.getElementById("sRoll"),
     sWin=document.getElementById("sWin"),sLose=document.getElementById("sLose"),sOut=document.getElementById("sOut");
 
-  const T_IN=650,T_STAND=1000,T_ROLL=3000,T_AFTER_RESULT=2000,T_OUT=650;
+  const T_IN=650,T_STAND=3000,T_ROLL=3000,T_AFTER_RESULT=1000,T_OUT=650;
   let busy=false; const queue=[];
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
